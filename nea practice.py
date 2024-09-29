@@ -11,13 +11,16 @@ class Player(pygame.sprite.Sprite):
         self.playeridx = 0
         self.player3 = pygame.image.load('jump.png').convert_alpha()
         self.image = self.players[self.playeridx]
-        self.rect = self.image.get_rect(midbottom = (200,300))
+        self.rect = self.image.get_rect(midbottom = (80,300))
         self.gravity = 0
+        self.jumpSound = pygame.mixer.Sound('jump.mp3')
+        self.jumpSound.set_volume(0.3)
 
     def playerInput(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE] and self.rect.bottom >= 300:
             self.gravity = -20
+            self.jumpSound.play()
 
     def applyGravity(self):
         self.gravity += 1
@@ -78,36 +81,13 @@ def score(startTime, active):
         pygame.draw.rect(screen, '#c0e8ec', scoreRect)
         screen.blit(scoreText, scoreRect)
         return time
-    
-def obstacleMove(listy):
-    if listy:
-        for recty in listy:
-            recty.x -= 5
-            if recty.bottom == 300:
-                screen.blit(snail, recty)
-            else:
-                screen.blit(fly, recty)
-        listy = [ob for ob in listy if ob.x > -100]
-        return listy
-    else:
-        return []
 
-def collisions(player, obstacles):
-    if obstacles:
-        for recty in obstacles:
-            if player.colliderect(recty):
-                return False
-    return True
-
-def playerAnimate():
-    global player, playeridx
-    if playerRect.bottom < 300:
-        player = player3
+def spriteCollide():
+    if pygame.sprite.spritecollide(playersp.sprite,obstacles,False):
+        obstacles.empty()
+        return False
     else:
-        playeridx += 0.1
-        if playeridx>= len(players):
-            playeridx = 0
-        player = players[int(playeridx)]      
+        return True
 
 pygame.init()
 screen = pygame.display.set_mode((800,400))
@@ -117,6 +97,9 @@ testFont = pygame.font.Font('Pixeltype.ttf', 50)
 active = False
 startTime = 0
 final = 0
+music = pygame.mixer.Sound('music.wav')
+music.set_volume(0.1)
+music.play(loops = -1)
 
 playersp = pygame.sprite.GroupSingle()
 playersp.add(Player())
@@ -129,30 +112,6 @@ textRect = text.get_rect(midtop = (400,50))
 bg = pygame.Surface((800,400))
 title = testFont.render('Practice Game', False, (111,196, 169))
 titleRect = title.get_rect(center = (400,50))
-
-snail1 = pygame.image.load('snail1.png').convert_alpha()
-snail2 = pygame.image.load('snail2.png').convert_alpha()
-snails = [snail1, snail2]
-snailidx = 0
-snail = snails[snailidx]
-fly1 = pygame.image.load('Fly1.png').convert_alpha()
-fly2 = pygame.image.load('Fly2.png').convert_alpha()
-flies = [fly1, fly2]
-flyidx = 0
-fly = flies[flyidx]
-
-obstacleRectList = []
-
-player1 = pygame.image.load('player_walk_1.png').convert_alpha()
-player2 = pygame.image.load('player_walk_2.png').convert_alpha()
-players = [player1, player2]
-playeridx = 0
-player3 = pygame.image.load('jump.png').convert_alpha()
-player = players[playeridx] 
-playerRect = player.get_rect(bottomleft = (50,300))
-playerGravity = 0
-
-
 playerO = pygame.image.load('player_stand.png').convert_alpha()
 playerO = pygame.transform.rotozoom(playerO, 0, 2)
 playerORect = playerO.get_rect(center = (400,200))
@@ -160,44 +119,19 @@ playerORect = playerO.get_rect(center = (400,200))
 obstacleTimer = pygame.USEREVENT + 1
 pygame.time.set_timer(obstacleTimer, 1500)
 
-snailTimer = pygame.USEREVENT + 2
-pygame.time.set_timer(snailTimer, 500)
-
-flyTimer = pygame.USEREVENT + 3
-pygame.time.set_timer(flyTimer, 200)
-
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
         if active:
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if playerRect.collidepoint(event.pos) and playerRect.bottom == 300:
-                    playerGravity = -20
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and playerRect.bottom == 300:
-                    playerGravity = -20
+            if event.type == obstacleTimer:
+                obstacles.add(Obstacle(choice(['fly', 'snail', 'snail', 'snail'])))
         else:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     active = True
-                    playerRect.left = 30
                     startTime = pygame.time.get_ticks()
-        if event.type == obstacleTimer and active:
-            obstacles.add(Obstacle(choice(['fly', 'snail', 'snail', 'snail'])))
-        if event.type == snailTimer and active:
-            if snailidx == 0:
-                snailidx = 1
-            else:
-                snailidx = 0
-            snail = snails[snailidx]
-        if event.type == flyTimer and active:
-            if flyidx == 0:
-                flyidx = 1
-            else:
-                flyidx = 0
-            fly = flies[flyidx]
 
     if active:
         screen.blit(bg, (0,0))
@@ -205,28 +139,16 @@ while True:
         screen.blit(ground, (0,300))
         pygame.draw.rect(screen, '#c0e8ec', textRect)
         screen.blit(text, textRect)
-        time = score(startTime, active)
-        pygame.draw.line(screen, 'cyan', (0,0), pygame.mouse.get_pos(), 10)
-        screen.blit(player, playerRect)
-        playerGravity += 1
-        playerRect.bottom += playerGravity
-        if playerRect.bottom >= 300:
-            playerRect.bottom = 300
-        playerAnimate()
         playersp.draw(screen)
         playersp.update()
         obstacles.draw(screen)
         obstacles.update()
-        obstacleRectList = obstacleMove(obstacleRectList)
-        active = collisions(playerRect, obstacleRectList)
+        active = spriteCollide()
         final = score(startTime, active)
     else:
         screen.fill((94,129,162))
         screen.blit(playerO, playerORect)
         screen.blit(title, titleRect)
-        obstacleRectList.clear()
-        playerRect.midbottom = (80,300)
-        playerGravity = 0
         if final == 0:
             instruct = testFont.render('Press space to start', False, (111, 196, 169))
             instRect = instruct.get_rect(center = (400,350))
